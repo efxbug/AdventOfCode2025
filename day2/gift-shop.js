@@ -38,23 +38,18 @@ const findDuplicatesSum2 = (fileName) => {
     for (let i = Number(start); i <= Number(end); i++) {
       //get the string version
       const str = i.toString();
-      let skipNext = false;
-      for (let j = 0; j < str.length / 2; j++) {
+      for (let j = 2; j <= str.length; j++) {
         //test any smaller measure if it's a valid divisor
-        const len = j + 1;
-        if (str.length % len === 0) {
+        if (str.length % j === 0) {
           //check repetitions
-          const rep = str.slice(0, len).repeat(str.length / len);
+          const len = str.length / j;
+          const rep = str.slice(0, len).repeat(j);
           if (rep === str) {
             //found
             ids.push(i);
-            skipNext = true;
             break;
           }
         }
-      }
-      if (skipNext) {
-        continue;
       }
     }
   });
