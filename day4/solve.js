@@ -92,13 +92,13 @@ const solve2 = (fileName, adjacents = 4) => {
 
 (() => {
   Logger.setLogLevel(LOGLEVEL.INFO);
-  console.log("Day 4: Printing department\n");
-  console.log("Running sample 1");
+  Logger.info("Day 4: Printing department\n");
+  Logger.info("Running sample 1");
   solve(import.meta.dirname + "/sample.txt");
-  console.log("Running complete 1");
+  Logger.info("Running complete 1");
   solve(import.meta.dirname + "/input.txt");
-  console.log("Running sample 2");
+  Logger.info("Running sample 2");
   solve2(import.meta.dirname + "/sample.txt");
-  console.log("Running complete 2");
+  Logger.info("Running complete 2");
   solve2(import.meta.dirname + "/input.txt");
 })();
