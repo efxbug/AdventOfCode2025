@@ -98,7 +98,7 @@ const solve2 = (fileName) => {
 
 (() => {
   Logger.setLogLevel(LOGLEVEL.INFO);
-  Logger.info("Day 4: Printing department\n");
+  Logger.info("Day 5: Cafeteria\n");
   Logger.info("Running sample 1");
   solve(import.meta.dirname + "/sample.txt");
   Logger.info("Running complete 1");
