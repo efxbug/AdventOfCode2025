@@ -2,30 +2,26 @@ import ColorHelper from "../utils/colors.js";
 import { readTextLines } from "../utils/fileparser.js";
 import { Logger, LOGLEVEL } from "../utils/logger.js";
 
-const getOpFunction = (op) => {
-  switch (op) {
-    case "+":
-      return (a, b) => a + b;
-    case "*":
-      return (a, b) => a * b;
-    case "-":
-      return (a, b) => a - b;
-    case "/":
-      return (a, b) => a / b;
-  }
-  throw new Exception("Invalid operand " + op);
+const OP_FUNCTIONS = {
+  "+": (a, b) => a + b,
+  "*": (a, b) => a * b,
+  "-": (a, b) => a - b,
+  "/": (a, b) => a / b,
 };
+Object.freeze(OP_FUNCTIONS);
+
+const OPERATORS = Object.keys(OP_FUNCTIONS);
+Object.freeze(OPERATORS);
 
 const findResults = (operands = [], columns = []) => {
   const result = columns.reduce((sum, col, idx) => {
-    let op = operands[idx];
+    const op = operands[idx];
     Logger.v("Index " + idx + " Operand " + op + " Column ", col);
-    let opFn = getOpFunction(op);
     let res = col.reduce((acc, v, idx) => {
       if (idx === 0) {
         return v;
       } else {
-        return opFn(acc, v);
+        return OP_FUNCTIONS[op](acc, v);
       }
     });
     Logger.v("Result " + res);
@@ -35,76 +31,113 @@ const findResults = (operands = [], columns = []) => {
   return result;
 };
 
-const mergeRanges = (ranges = []) => {
-  //iterate
-  let changed;
-  let mergedRanges = [...ranges];
-  do {
-    changed = mergedRanges.find((rangeA, index) => {
-      for (let i = index + 1; i < mergedRanges.length; i++) {
-        let min = null,
-          max = null;
-        //check if ranges are intertwined
-        const rangeB = mergedRanges[i];
-        if (rangeA[0] <= rangeB[0]) {
-          if (rangeA[1] >= rangeB[0]) {
-            //create new mergedArray and stop
-            min = rangeA[0];
-            max = Math.max(rangeA[1], rangeB[1]);
-          }
-        } else if (rangeB[0] <= rangeA[0]) {
-          if (rangeB[1] >= rangeA[0]) {
-            min = rangeB[0];
-            max = Math.max(rangeA[1], rangeB[1]);
-          }
-        }
-        if (min !== null) {
-          //rearrange results and exit by retuning true;
-          mergedRanges = mergedRanges
-            .map((r, idx) => {
-              if (idx === index) {
-                //update range
-                return [min, max];
-              } else if (idx === i) {
-                //mark for deletion
-                return null;
-              } else return r;
-            })
-            .filter((a) => a);
-          return true;
-        }
-      }
-    });
-  } while (changed);
-  return mergedRanges;
-};
-
 const readInput = (fileName, cephalopod) => {
   Logger.info(`Reading ${fileName}...`);
   const input = readTextLines(fileName).filter((a) => a);
   Logger.v("Input parsed", input);
   //last line is the operands, parse them
-  const operands = input
-    .slice(-1)[0]
-    .split(/\s+/g)
-    .filter((a) => a);
-  //get other lines and convert them into numbers and into a matrix
-  const columns = input.slice(0, input.length - 1).reduce((arr, row) => {
-    if (cephalopod) {
-      //cannot use split, as we have to persist the spacing in the original file
-    } else {
-      row
-        .split(/\s+/g)
-        .filter((a) => a)
-        .map((n, index) => {
-          if (arr[index] === undefined) {
-            arr[index] = [];
-          }
-          arr[index].push(Number(n));
-        });
+  const operandsLine = input[input.length - 1];
+  //parse and get operands
+  const operands = [];
+  const columnsDetails = [];
+  for (let i = 0, o = 0; i < operandsLine.length; i++) {
+    const op = operandsLine[i];
+    if (OPERATORS.includes(op)) {
+      //found an operator, add to operands
+      operands.push(op);
+      if (columnsDetails.length > 0) {
+        //adjust last column size
+        const last = columnsDetails[columnsDetails.length - 1];
+        //column size based on previous index and toggle 1 for space
+        last.size = i - last.idx - 1;
+      }
+      columnsDetails.push({ idx: i, size: operandsLine.length - i });
     }
-    return arr;
-  }, []);
+  }
+  //get other lines and convert them into numbers and into a matrix
+  const numbers = input.slice(0, input.length - 1);
+  //if needed convert into cephalopods
+  Logger.debug(
+    `Found ${columnsDetails.length} column(s) with width ${JSON.stringify(
+      columnsDetails.reduce((res, cd) => {
+        if (res[cd.size] === undefined) {
+          res[cd.size] = 1;
+        } else {
+          res[cd.size]++;
+        }
+        return res;
+      }, {})
+    )}`
+  );
+  const columns = cephalopod
+    ? numbers
+        .reduce((res, row, idx, arr) => {
+          if (res.length === 0) {
+            //setup res
+            for (let i = 0; i < arr.length; i++) {
+              res[i] = [];
+            }
+            Logger.debug("Initialized res", res);
+          }
+          //browse columns
+          for (let c = 0; c < columnsDetails.length; c++) {
+            //columns
+            const width = columnsDetails[c].size;
+            const start = columnsDetails[c].idx;
+            // Logger.v(
+            //   "Brosing column " +
+            //     c +
+            //     " from " +
+            //     start +
+            //     ", width = " +
+            //     width +
+            //     ": " +
+            //     row.slice(start, start + width)
+            // );
+            for (let i = 0; i < width; i++) {
+              let p = start + i;
+              let n = Number(row[p]);
+              // Logger.v(
+              //   `Row ${idx}, i ${i}, column ${c}, pos ${p} = ${n}(${row[p]}), res[i]=${res[i]}, res[i][c]=${res[i][c]}`
+              // );
+              if (n === 0 && row[p] !== "0") {
+                //empty cell, do nothing
+              } else if (res[i][c] === undefined) {
+                res[i][c] = row[p];
+              } else {
+                res[i][c] += row[p];
+              }
+              // Logger.v(
+              //   `Updated ${idx}, i ${i}, column ${c}, pos ${p} = ${n}(${row[p]}), res[i]=${res[i]}, res[i][c]=${res[i][c]}`
+              // );
+            }
+          }
+          return res;
+        }, [])
+        .reduce((res, row, rowIdx, arr) => {
+          if (res.length === 0) {
+            for (let i = 0; i < columnsDetails.length; i++) {
+              res[i] = [];
+            }
+            Logger.debug("Initialized res ", res, arr);
+          }
+          row.forEach((val, idx) => {
+            res[idx][rowIdx] = Number(val);
+          });
+          return res;
+        }, [])
+    : numbers.reduce((arr, row) => {
+        row
+          .split(/\s+/g)
+          .filter((a) => a)
+          .map((n, index) => {
+            if (arr[index] === undefined) {
+              arr[index] = [];
+            }
+            arr[index].push(Number(n));
+          });
+        return arr;
+      }, []);
   Logger.debug("Done", operands, columns);
   return { operands, columns };
 };
@@ -133,5 +166,5 @@ const solve2 = (fileName) => {
   Logger.info("Running sample 2");
   solve2(import.meta.dirname + "/sample.txt");
   Logger.info("Running complete 2");
-  // solve2(import.meta.dirname + "/input.txt");
+  solve2(import.meta.dirname + "/input.txt");
 })();
